@@ -1,4 +1,4 @@
-﻿#include <opencv2\core.hpp>
+#include <opencv2\core.hpp>
 #include <opencv2\imgproc.hpp>
 #include <opencv2\highgui.hpp>
 using namespace cv;
@@ -8,9 +8,6 @@ using namespace std;
 #include <stdio.h>
 
 #include <iostream>
-
-Mat frame;
-Mat frame_copy;
 
 void captureFromCamera() {
     VideoCapture cap(0); 
@@ -31,6 +28,7 @@ void captureFromCamera() {
     while (1)
     {
 
+        Mat frame;
         bool bSuccess = cap.read(frame); 
 
         if (!bSuccess) 
@@ -39,23 +37,28 @@ void captureFromCamera() {
             break;
         }
 
+        //отделение зеленого объекта от фона 
+        Mat frame_copy;
+
         frame.copyTo(frame_copy);
-        
+        // переводим в формат HSV
         Mat hsv = Mat(frame_copy.cols, frame_copy.rows, 8, 3); 
         vector<Mat> splitedHsv = vector<Mat>();
         cvtColor(frame_copy, hsv, CV_BGR2HSV);
         split(hsv, splitedHsv);
 
-        const int GREEN_MIN = 47; 
+        //диапозон зеленого
+        const int GREEN_MIN = 40; 
         const int GREEN_MAX = 95;
+        //разбиваем изображение на три компаненты и удаляем фон
         for (int y = 0; y < hsv.cols; y++) {
             for (int x = 0; x < hsv.rows; x++) {
                 // получаем HSV-компоненты пикселя
                 int H = static_cast<int>(splitedHsv[0].at<uchar>(x, y)); // Тон
-                int S = static_cast<int>(splitedHsv[1].at<uchar>(x, y)); // Интенсивность
+                int S = static_cast<int>(splitedHsv[1].at<uchar>(x, y)); // Интенсивность -
                 int V = static_cast<int>(splitedHsv[2].at<uchar>(x, y)); // Яркость
 
-                //Если яркость слишком низкая либо Тон не попадает у заданный диапазон, то закрашиваем белым
+                //Если тон не укладывается в заданный диапозон  или яркость слишком низкая - значит это фон => закрашиваем белым цветом
                 if ((V < 20) || (H < GREEN_MIN) || (H > GREEN_MAX)) {
                     frame_copy.at<Vec3b>(x, y)[0] = 255;
                     frame_copy.at<Vec3b>(x, y)[1] = 255;
@@ -64,12 +67,12 @@ void captureFromCamera() {
             }
         }
           
-        int an = 7;
+        int an = 15;
         //Морфологическое замыкание для удаления остаточных шумов.
         Mat element = getStructuringElement(MORPH_ELLIPSE, Size(an * 2 + 1, an * 2 + 1), Point(an, an));
         dilate(frame_copy, frame_copy, element);
         erode(frame_copy, frame_copy, element);
-
+        //переводим изображение в чернобелый формат
         Mat grayscaleMat;
         cvtColor(frame_copy, grayscaleMat, CV_BGR2GRAY);
 
@@ -101,7 +104,7 @@ void captureFromCamera() {
             }
         }
 
-        imshow("Video", frame);
+        imshow("MyVideo", frame);
         imshow("Mask", mask);
 
         if (waitKey(30) == 27) 
